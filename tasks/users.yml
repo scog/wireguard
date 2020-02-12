@@ -6,13 +6,6 @@
   with_dict: "{{ wg_user_list }}"
   when: (item.value.remove == False)
 
-- name: remove Wireguard user config directory
-  file:
-    path: "{{ wg_conf_dir.path }}/{{ item.value.username }}"
-    state: absent
-  with_dict: "{{ wg_user_list }}"
-  when: (item.value.remove == True)
-
 - name: Generate Wireguard users key
   shell: |
     if [ ! -f {{ wg_conf_dir.path }}/{{ item.value.username }}/privatekey ]
@@ -37,6 +30,25 @@
   with_dict: "{{ wg_user_list }}"
   register: wg_user_privatekey
   when: (item.value.remove == False)
+
+- name: remove Wireguard user config directory
+  file:
+    path: "{{ wg_conf_dir.path }}/{{ item.value.username }}"
+    state: absent
+  with_dict: "{{ wg_user_list }}"
+  when: (item.value.remove == True)
+
+# Get user public key string from wg_user_publickey object
+- set_fact:
+    user_publickey: "{{ wg_user_publickey.results[0].content | b64decode | replace('\n', '') }}"
+  with_dict: "{{ wg_user_list }}"
+
+# Remove from running wg config
+- name: Remove wg-user from wg0 config
+  shell:
+    cmd: "wg set wg0 peer {{ user_publickey }} remove"
+  with_dict: "{{ wg_user_list }}"
+  when: (item.value.remove == True)
 
 # Generate Wireguard server config
 # - debug:
